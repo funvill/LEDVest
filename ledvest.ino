@@ -1,19 +1,29 @@
 #include "FastLED.h"
 
-#define NUM_LEDS ((38  * 3) + 50 ) 
-
 // Data pin that led data will be written out over
-#define DATA_PIN 11
+#define DATA_PIN_ONE   11    // 38 leds, starting offset = 0 
+#define DATA_PIN_TWO   10    // 38 leds, starting offset = 38
+#define DATA_PIN_THREE  9    // 38 leds, starting offset = 76
+#define DATA_PIN_FOUR  12    // 47 leds, starting offset = 114
+#define DATA_PIN_FIVE  13    // 28 leds, starting offset = 161
 
+#define NUM_LEDS 38 + 38 + 38 + 47 + 28 
 CRGB leds[NUM_LEDS];
 
 void setup() {
-	// sanity check delay - allows reprogramming if accidently blowing power w/leds
-   	delay(2000);
+  // sanity check delay - allows reprogramming if accidently blowing power w/leds
+  delay(1000);
+  
+  // Add strips 
+  FastLED.addLeds<WS2811, DATA_PIN_ONE>  (leds,   0, 38);
+  FastLED.addLeds<WS2811, DATA_PIN_TWO>  (leds,  38, 38);
+  FastLED.addLeds<WS2811, DATA_PIN_THREE>(leds,  76, 38);
+  FastLED.addLeds<WS2811, DATA_PIN_FOUR> (leds, 114, 47);
+  FastLED.addLeds<WS2811, DATA_PIN_FIVE> (leds, 161, 28);        
 
-      // Uncomment one of the following lines for your leds arrangement.
-//       FastLED.addLeds<WS2811, DATA_PIN, RGB >(leds, NUM_LEDS);
-      FastLED.addLeds<NEOPIXEL, DATA_PIN, RGB>(leds, NUM_LEDS);
+  // Other types of stips 
+  // WS2811, WS2811_400, NEOPIXEL
+  
 }
 
 CRGB GetRandomColor() {
@@ -35,6 +45,12 @@ CRGB GetRandomColor() {
   return CRGB( random( 0, 255), random( 0, 255), random( 0, 255) ); 
 }
 
+void SolidColor( CRGB color ) {  
+  for(int i = 0 ; i < NUM_LEDS; i++ ) {
+     leds[i] = color; 
+  }  
+  FastLED.show();
+}
 
 void GrowAndFade( CRGB color, int delayCount = 0 ) {
   // growing/receeding bars
@@ -46,7 +62,7 @@ void GrowAndFade( CRGB color, int delayCount = 0 ) {
   }
   for(int i = NUM_LEDS-1 ; i >= 0; i-- ) {
     leds[i] = CRGB( 0, 0, 0);
-    FastSPI_LED.show();
+    FastLED.show();
     delay(delayCount/2);
   }
 }
@@ -89,7 +105,7 @@ void RandomFlashers( ) {
     } else { 
       leds[ randomLED ] = CRGB( 0,0,0 ) ;  
     }
-    FastSPI_LED.show();
+    FastLED.show();
     delay( 20 );
   }
 }
@@ -105,14 +121,14 @@ void RandomFireFlies( ) {
   // Fast up 
   for( int offset = 0 ; offset < steps /2  ; offset ++ ) { 
     leds[ randomLED ] = CRGB( map( offset, 0, steps, 0, 255) , 0, 0 ) ;  
-    FastSPI_LED.show();    
+    FastLED.show();    
   }
   delay( 20 );
   
   // Slow decay 
   for( int offset = steps ; offset > 0  ; offset -- ) { 
     leds[ randomLED ] = CRGB( map( offset, 0, steps, 0, 255) , 0, 0 ) ;  
-    FastSPI_LED.show();    
+    FastLED.show();    
   }
   delay( 20 );
   
@@ -121,7 +137,7 @@ void RandomFireFlies( ) {
 
 void FullRandom() {
     leds[ random( 0, NUM_LEDS-1) ] = GetRandomColor() ; 
-    FastSPI_LED.show();
+    FastLED.show();
 }
   
 void PartialRandom() {
@@ -132,14 +148,40 @@ void PartialRandom() {
   } else {
     // Randomly set one to black 
     leds[ random( 0, NUM_LEDS-1) ] = CRGB(0,0,0) ; 
-    FastSPI_LED.show();
+    FastLED.show();
   }
 }
  
+ 
+void checkerboard()
+{
+  for( int offset = 0 ; offset < NUM_LEDS ; offset++ ) {  
+    if( offset % 2 == 0 ) { 
+      leds[ offset ] = CRGB(255,0,0) ; 
+    } else {
+      leds[ offset ] = CRGB(0,0,255) ; 
+    }
+  }
+  FastLED.show();
+}
+
+void colorWheel() {
+  static uint8_t hue = 0;
+  FastLED.showColor(CHSV(hue++, 255, 255)); 
+}
 
 
 void loop() { 
-  memset(leds, 0, NUM_LEDS * 3);
+//  memset(leds, 0, NUM_LEDS * 3);
+
+  colorWheel(); 
+   
+  return ; 
+  /*
+  colorWheel(); 
+  checkerboard();
+  SolidColor( CRGB(255,0,0) ) ;   
+  
   
   for( int offset = 0 ; offset < 5 ; offset++ ) {  
     TopAndBottom( GetRandomColor(), GetRandomColor() );
@@ -179,7 +221,7 @@ void loop() {
   memset(leds, 0, NUM_LEDS * 3);
   
   return; 
-  
+  */
     /*
   // one at a time
   for(int j = 0; j < 3; j++) { 
@@ -217,7 +259,7 @@ void loop() {
       delay(1);
     }
   }
-
+*/
   // Fade in/fade out
   for(int j = 0; j < 3; j++ ) { 
     memset(leds, 0, NUM_LEDS * 3);
@@ -230,7 +272,6 @@ void loop() {
         }
       }
       FastLED.show();
-      //delay(3);
     }
     for(int k = 255; k >= 0; k--) { 
       for(int i = 0; i < NUM_LEDS; i++ ) {
@@ -241,9 +282,8 @@ void loop() {
         }
       }
       FastLED.show();
-      //delay(3);
     }
   }
-  */
+  
   
 }
