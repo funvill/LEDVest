@@ -14,6 +14,11 @@ CRGB leds[NUM_LEDS];
 
 int mode ;
 
+
+
+
+
+
 void setup() {
   // sanity check delay - allows reprogramming if accidently blowing power w/leds
   delay(1000);
@@ -34,24 +39,42 @@ void setup() {
   
 }
 
-CRGB GetRandomColor() {
-  switch( random( 0, 5 ) ) {
-    case 0: 
-      return CRGB( random( 0, 255), 0, 0 );     
-    case 1: 
-      return CRGB( 0, random( 0, 255), 0 );     
-    case 2: 
-      return CRGB( 0,0, random( 0, 255) );            
-    case 3: 
-      return CRGB( 0,random( 0, 255), random( 0, 255) );            
-    case 4: 
-      return CRGB( random( 0, 255),0, random( 0, 255) );            
-    case 5: 
-      return CRGB( random( 0, 255), random( 0, 255), 0 );            
-  }
-  
-  return CRGB( random( 0, 255), random( 0, 255), random( 0, 255) ); 
+CRGB GetNextHue( unsigned char inc = 1 ) {
+  static uint8_t hue = 0;
+  hue += inc ; 
+  return CRGB ( CHSV(hue, 255, 255));
 }
+
+void checkInput() {
+  // Check the input. We only want to check the input every so often 
+  // so we don't slow down the LED bit bang 
+  static int checkCount = 0 ; 
+  checkCount++; 
+  if( checkCount % 10 == 0 ) 
+  { 
+    // Read inout 
+    static boolean buttonDebounce = true ; 
+    int analogValue = analogRead(0);
+    if( buttonDebounce && analogValue >= 1000 ) {
+      buttonDebounce = false ;
+      memset(leds, 0, NUM_LEDS * 3);
+      mode++; 
+    } else if( analogValue == 0 ) {
+      buttonDebounce = true ; 
+    }
+  }
+
+}
+
+
+void improvedDelay( int count =1 ) {
+  unsigned long time = millis() + count ;
+  while( time > millis() ) {
+    FastLED.show();    
+    checkInput();
+  }
+}
+
 /*
 void SolidColor( CRGB color ) {  
   for(int i = 0 ; i < NUM_LEDS; i++ ) {
@@ -147,6 +170,32 @@ void PartialRandom() {
   }
 }
  
+ 
+void RisingLines() {
+  static int lineOffset    = 0 ; 
+  static int lineDelay     = 50; 
+  static unsigned char hue = 0 ; 
+  static CRGB color        = CHSV(hue, 255, 255) ; 
+  
+  if( lineOffset > 10 ) {
+    // We have reached the top. 
+    // Speed up and start at the bottom again. 
+    lineOffset = 0 ; 
+    hue += 20 ;
+    color     = CHSV(hue, 255, 255) ;
+    memset(leds, 0, NUM_LEDS * 3);
+  }
+  
+  for( int ledOffset = lineOffset * 19 ; ledOffset < ((1 + lineOffset) * 19 ) && ledOffset < NUM_LEDS ; ledOffset++ ) {
+    leds[ ledOffset ] = color;   
+  }
+  
+  improvedDelay( lineDelay ) ;   
+  lineOffset++; 
+}
+
+ 
+ 
 */ 
  // ----------------------------------------------------------------------------
  
@@ -154,28 +203,27 @@ void PartialRandom() {
  
 void checkerboard()
 {
+  static uint8_t hue1 = 0;
+  static uint8_t hue2 = 128;
+  
   for( int offset = 0 ; offset < NUM_LEDS ; offset++ ) {  
     if( offset % 2 == 0 ) { 
-      leds[ offset ] = CRGB(255,0,0) ; 
+      leds[ offset ] = CHSV(hue1, 255, 255) ; 
     } else {
-      leds[ offset ] = CRGB(0,0,255) ; 
+      leds[ offset ] = CHSV(hue2, 255, 255) ; 
     }
   }
+  hue1++;
+  hue2++;  
 }
 
 void colorWheel() {
   static uint8_t hue = 0;
   FastLED.showColor(CHSV(hue++, 255, 255)); 
+  improvedDelay( 5 ) ;
 }
 
 void rainbow() {
-  
-  static unsigned long time = millis() + 100 ;
-  if( time > millis() ) {
-    return ; 
-  }
-  time = millis() + 100 ;
-    
   static int ihue = 0 ;     
   for(int idex = 0 ; idex < NUM_LEDS; idex++ ) {      
     ihue += 20;
@@ -184,16 +232,18 @@ void rainbow() {
     }
     leds[idex] = CHSV(ihue, 255, 255);
   }
+  improvedDelay( 100 )  ;
 }
+
 void GrowAndFade( ) {
   // growing/receeding bars
-  static CRGB color    = GetRandomColor() ; 
+  static CRGB color    = GetNextHue() ; 
   static int ledOffset = 0 ; 
   static int dir       = 1 ; 
   
   if( ledOffset <= 3 ) {
     dir = 1 ; 
-    color = GetRandomColor() ;  ; 
+    color = GetNextHue( 50 ) ;  ; 
   } else if ( ledOffset >= NUM_LEDS-3 ) {
     dir = -1 ; 
   }
@@ -206,20 +256,17 @@ void GrowAndFade( ) {
   
   // Increase the count. 
   ledOffset += dir ;   
-  
-  /*
-  Serial.print("ledOffset=");  
-  Serial.print(ledOffset);
-  Serial.print(", dir=");  
-  Serial.println(dir);
-  */
+ 
 }
 
+ // ----------------------------------------------------------------------------
 
 
 
 
 void loop() { 
+
+  
   switch( mode ) {
     default: 
     case 0: {
@@ -248,30 +295,7 @@ void loop() {
   // Display the results. 
   LEDS.show();
   
-  
-  // Check the input. We only want to check the input every so often 
-  // so we don't slow down the LED bit bang 
-  static int checkCount = 0 ; 
-  checkCount++; 
-  if( checkCount % 10 == 0 ) 
-  { 
-    // Read inout 
-    static boolean buttonDebounce = true ; 
-    int analogValue = analogRead(0);
-    if( buttonDebounce && analogValue >= 1000 ) {
-      buttonDebounce = false ;
-      memset(leds, 0, NUM_LEDS * 3);
-      mode++; 
-    } else if( analogValue == 0 ) {
-      buttonDebounce = true ; 
-    }
-    /*
-    Serial.print("button=");
-    Serial.print(analogValue);
-    Serial.print(", mode=");  
-    Serial.println(mode);
-    */
-  }
+  checkInput(); 
 
 
 //   
